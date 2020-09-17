@@ -1,0 +1,125 @@
+---
+title: "Storm Data Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+## 1. Synopsis
+
+This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+The analysis involves determining which types of events are most harmful to the population health by examining the number of fatalities and injuries for each event, as well as determining which types of events have the greatest economic consequences by examining the amount of property and crop damage. From the analysis, we can conclude that tornadoes are the most harmful to the population health and floods lead to the greatest economic consequences.
+
+## 2. Data Processing
+
+### 2.1 Loading in the Data
+
+Load in the required libraries.
+```{r}
+library(dplyr)
+```
+
+Download the file into the working directory as follows:
+```{r}
+if (!file.exists("storm_data.bz2")){
+    fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+    download.file(fileURL,destfile = "./storm_data.bz2", method = "curl")
+}
+```
+
+The data is read into the variable `storm` and the first few rows and structure are shown below:
+```{r, cache=TRUE}
+storm <- read.csv("storm_data.bz2")
+head(storm)
+str(storm)
+```
+
+### 2.2 Data Cleaning
+
+Subset the required variables from the dataframe. 
+```{r}
+storm_sub <- storm %>% select(EVTYPE,FATALITIES,INJURIES,PROPDMG,PROPDMGEXP,CROPDMG, CROPDMGEXP)
+```
+
+The **PROPDMGEXP** and **CROPDMGEXP** columns refer to the exponent value of the **PROPDMG** and **CROPDMG** columns respectively. They are not formatted properly and contain several characters and numerical values as shown below.
+```{r}
+unique(storm_sub$PROPDMGEXP)
+```
+
+With reference to the conversion values from [here](https://rstudio-pubs-static.s3.amazonaws.com/58957_37b6723ee52b455990e149edde45e5b6.html), the **PROPDMGEXP** and **CROPDMGEXP** columns are converted to a standard format.
+```{r}
+convertExponentToMultiplier <- function(exp){
+    ifelse(
+        exp %in% c('H', 'h'), 10^2,        # H,h -> 100
+        ifelse(
+            exp %in% c('K', 'k'), 10^3,      # K,k -> 1,000
+            ifelse(
+                exp %in% c('M', 'm'), 10^6,    # M,m -> 1,000,000
+                ifelse(
+                    exp %in% c('B', 'b'), 10^9,  # B,b -> 1,000,000,000
+                    ifelse(
+                        exp == '+', 1,                         # '+' -> 1
+                        ifelse(
+                            exp %in% paste(seq(0,8)), 10^1,      # 0-8 -> 10
+                            0                            # everything else -> 0
+                        )
+                    )
+                )
+            )
+        )
+    )
+}
+storm_sub$PROPDMGEXP <- convertExponentToMultiplier(storm_sub$PROPDMGEXP)
+storm_sub$CROPDMGEXP <- convertExponentToMultiplier(storm_sub$CROPDMGEXP)
+```
+
+Next, the property and crop damages are calculated with the converted values.
+```{r}
+storm_sub$prop <- storm_sub$PROPDMGEXP * storm_sub$PROPDMG
+storm_sub$crop <- storm_sub$CROPDMGEXP * storm_sub$CROPDMG
+```
+
+## 3. Exploratory Data Analysis
+
+### 3.1 Across the United States, which types of events (as indicated in the **EVTYPE** variable) are most harmful with respect to population health?
+
+#### 3.1.1 Analysis
+
+The sum of fatalities by storm type and sum of injuries by storm type are computed. The first 10 rows are extracted as follows:
+```{r}
+storm_fatality <- storm_sub %>% group_by(EVTYPE) %>% summarise(fatalities = sum(FATALITIES)) %>% arrange(desc(fatalities)) %>% head(10)
+storm_injury <- storm_sub %>% group_by(EVTYPE) %>% summarise(injuries = sum(INJURIES)) %>% arrange(desc(injuries)) %>% head(10)
+```
+
+The barplots containing the top 10 events with the most number of fatalities and injuries are plotted below:
+```{r fatal_inj_barplot, fig.height = 7, fig.width= 10}
+par(mfrow=c(1,2), mar=c(12,4,4,2))
+with(storm_fatality, barplot(fatalities, names.arg=EVTYPE, ylab="Number of Fatalities", main="Events with Most Fatalities", col='lightblue', las=3))
+with(storm_injury, barplot(injuries, names.arg=EVTYPE, ylab="Number of injuries", main="Events with Most Injuries", col='lightblue', las=3))
+```
+
+#### 3.1.2 Results
+
+From the above barplots, we can observe that tornadoes caused the most number of fatalities and injuries by a large margin, resulting in it being the most harmful event to the population. Excessive heat followed by flash floods are the next 2 most harmful events (since fatalities should contribute more than injuries in determining the amount of harm to the population), where excessive heat is 2nd in fatalities, 4th in injuries while flash floods are 3rd in fatalities, 8th in injuries. These results are expected since tornadoes are very frequent in the United States and would often cause many fatalities and injuries.
+
+### 3.2 Across the United States, which types of events have the greatest economic consequences?
+
+#### 3.2.1 Analysis
+The sum of property damage by storm type and sum of crop damage by storm type are computed. The first 10 rows are extracted as follows:
+```{r}
+storm_prop <- storm_sub %>% group_by(EVTYPE) %>% summarise(prop_damage = sum(prop)) %>% arrange(desc(prop_damage)) %>% head(10)
+storm_crop <- storm_sub %>% group_by(EVTYPE) %>% summarise(crop_damage = sum(crop)) %>% arrange(desc(crop_damage)) %>% head(10)
+```
+
+The barplots containing the top 10 events with the most property and crop damage are plotted below:
+```{r prop_crop_barplot, fig.height = 7, fig.width= 10}
+par(mfrow=c(1,2), mar=c(12,4,4,2))
+with(storm_prop, barplot(prop_damage/10^9, names.arg=EVTYPE, ylab="Amount of Property Damage (billions)", main="Events with Most Property Damage", col='lightgreen', las=3))
+with(storm_crop, barplot(crop_damage/10^9, names.arg=EVTYPE, ylab="Amount of Crop Damage (billions)", main="Events with Most Crop Damage", col='lightgreen', las=3))
+```
+
+#### 3.2.2 Results
+
+From the above barplots, we can observe that floods results in the greatest economic consequence since it leads to the most property damage and 2nd in most crop damage. Droughts lead to the most crop damage but is not in the top 10 most property damage and this is unsurprising as dry weather does not damage buildings. 
