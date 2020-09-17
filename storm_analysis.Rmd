@@ -1,5 +1,5 @@
 ---
-title: "Storm Data Analysis"
+title: "Analysis of the U.S. National Oceanic and Atmospheric Administration’s (NOAA) Storm Dataset"
 output: html_document
 ---
 
