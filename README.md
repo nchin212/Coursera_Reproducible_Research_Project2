@@ -28,3 +28,6 @@ Your data analysis must address the following questions:
 2. Across the United States, which types of events have the greatest economic consequences?
 
 Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+
+## Submission
+The completed project can be viewed [here](https://rpubs.com/nchin212/storm_analysis)
